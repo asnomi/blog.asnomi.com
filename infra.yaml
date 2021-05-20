@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Deploy VPC and InternetGateway. and VPC Flowlog to S3.
+  Deploy Blog system infrastructure.
 # ----------------------------------------
 # Deployment CMS Instance Template
 
