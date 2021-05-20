@@ -1,0 +1,495 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Deploy VPC and InternetGateway. and VPC Flowlog to S3.
+# ----------------------------------------
+# Deployment CMS Instance Template
+
+# ---------------------------------
+# Metadata
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Tag config
+        Parameters:
+          - EnvTag
+          - Project
+
+      - Label:
+          default: NW Config
+        Parameters:
+          - VpcCidr
+          - PublicSubnetAzACidr
+          - PublicSubnetAzDCidr
+          - PrivateSubnetAzACidr
+          - PrivateSubnetAzDCidr
+
+      - Label:
+          default: Maintenance configure 
+        Parameters:
+          - MaintenanceIp
+          - WebHealthCheckPath
+
+      - Label:
+          default: SSL cert Config
+        Parameters:
+          - AcmArn
+
+# ---------------------------------
+# Variable setting: Manual input for GUI Operation.
+Parameters:
+
+  EnvTag:
+    Type: String
+    Default: dev
+    Description: Set Enviroment Tag to AWS resource.
+    AllowedValues:
+      - prd
+      - dev
+
+  Project:
+    Type: String
+    Description: Set Project Name.
+
+  VpcCidr:
+    Type: String
+    Description: Set Vpc Cidr
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+
+  PublicSubnetAzACidr:
+    Type: String
+    Description: Set Public Subnet AZ-A 
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+
+  PublicSubnetAzDCidr:
+    Type: String
+    Description: Set Public Subnet AZ-D 
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+
+  PrivateSubnetAzACidr:
+    Type: String
+    Description: Set Private Subnet AZ-A 
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+
+  PrivateSubnetAzDCidr:
+    Type: String
+    Description: Set Private Subnet AZ-D
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+
+  MaintenanceIp:
+    Type: String
+    Description: Input the Maintenance global Ip
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
+
+  AcmArn:
+    Type: String
+    Description: Set ACM ARN. Before setting sertificate manager.
+  
+  WebHealthCheckPath:
+    Type: String
+    Description: Web Instance Health Check Path.
+
+# ---------------------------------
+# Deployment Resources
+Resources:
+
+  # Network
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-vpc
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  Igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-igw
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  AttachIgw:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref Igw
+
+  PublicSubnetAzA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: !Ref PublicSubnetAzACidr
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-pub-subnet-a
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  PublicSubnetAzD:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: ap-northeast-1d
+      CidrBlock: !Ref PublicSubnetAzDCidr
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-pub-subnet-d
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  PrivateSubnetAzA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: !Ref PrivateSubnetAzACidr
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-pri-subnet-a
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  PrivateSubnetAzD:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: ap-northeast-1d
+      CidrBlock: !Ref PrivateSubnetAzDCidr
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-pri-subnet-d
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  PublicRtb:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-pub-rtb
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRtb
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref Igw
+  PublicSubnetRtbAssociationAzA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetAzA
+      RouteTableId: !Ref PublicRtb
+  PublicSubnetRtbAssociationAzD:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetAzD
+      RouteTableId: !Ref PublicRtb
+
+  PrivateRtb:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-pri-rtb
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+  PrivateSubnetRtbAssociationAzA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetAzA
+      RouteTableId: !Ref PrivateRtb
+  PrivateSubnetRtbAssociationAzD:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetAzD
+      RouteTableId: !Ref PrivateRtb
+
+  # SG
+  SgInternal:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: maitenance sg
+      GroupName: !Sub ${Project}-${EnvTag}-internal-sg
+      SecurityGroupEgress: 
+        - CidrIp: '0.0.0.0/0'
+          Description: Full Open Outbound
+          IpProtocol: '-1'
+      SecurityGroupIngress: 
+        - CidrIp: !Ref MaintenanceIp
+          Description: Ssh from maitenance work area
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+        - CidrIp: !Ref MaintenanceIp
+          Description: Http from maitenance work area
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-internal-sg
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  SgInternalSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SgInternal
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !Ref SgInternal
+
+  SgBack:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: backend sg
+      GroupName: !Sub ${Project}-${EnvTag}-back-sg
+      SecurityGroupEgress: 
+        - CidrIp: '0.0.0.0/0'
+          Description: Full Open Outbound
+          IpProtocol: '-1'
+      SecurityGroupIngress: 
+        - SourceSecurityGroupId: !Ref SgElbFront
+          Description: Http from ELB
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-back-sg
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  SgBackSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SgBack
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !Ref SgBack
+
+  SgElbFront:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: frontend sg
+      GroupName: !Sub ${Project}-${EnvTag}-front-sg
+      SecurityGroupEgress: 
+        - CidrIp: '0.0.0.0/0'
+          Description: Full Open Outbound
+          IpProtocol: '-1'
+      SecurityGroupIngress: 
+        - CidrIp: '0.0.0.0/0'
+          Description: Https from Internet
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-front-sg
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  SgElbFrontSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SgElbFront
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !Ref SgElbFront
+
+  IamRoleWeb:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: 
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: Web Instance Iam Role
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+        - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      RoleName: !Sub ${Project}-${EnvTag}-web-role
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-web-role
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  InstanceProfileWeb:  
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${Project}-${EnvTag}-web-profile
+      Path: "/" 
+      Roles:
+      - !Ref IamRoleWeb
+
+  Alb: 
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: 'false'
+        - Key: deletion_protection.enabled
+          Value: 'false'
+        - Key: idle_timeout.timeout_seconds
+          Value: '130'
+        - Key: routing.http2.enabled
+          Value: 'true'
+      Name: !Sub ${Project}-${EnvTag}-web-alb
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups: 
+        - !Ref SgElbFront
+      Subnets: 
+        - !Ref PublicSubnetAzD
+        - !Ref PublicSubnetAzA
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-web-alb
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+  AlbListener: 
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      Certificates: 
+        - CertificateArn: !Ref AcmArn
+      DefaultActions: 
+        - Type: forward 
+          TargetGroupArn: !Ref TargetgroupWeb
+      LoadBalancerArn: !Ref Alb
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: "ELBSecurityPolicy-TLS-1-2-2017-01"
+
+  TargetgroupWeb:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckIntervalSeconds: 15
+      HealthCheckPath: !Ref WebHealthCheckPath
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      Name: !Sub ${Project}-${EnvTag}-web-targetgroup
+      Port: 80
+      Protocol: HTTP
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-web-targetgroup
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+# ---------------------------------
+# Variable setting: Export Value.
+Outputs:
+  VpcId:
+    Value: !Ref Vpc
+    Export:
+      Name: !Sub ${AWS::StackName}-VpcId
+
+  IgwId:
+    Value: !Ref Igw
+    Export:
+      Name: !Sub ${AWS::StackName}-IgwId
+
+  PublicSubnetAzA:
+    Value: !Ref PublicSubnetAzA
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnetAzA
+
+  PublicSubnetAzD:
+    Value: !Ref PublicSubnetAzD
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnetAzD
+
+  PrivateSubnetAzA:
+    Value: !Ref PrivateSubnetAzA
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnetAzA
+
+  PrivateSubnetAzD:
+    Value: !Ref PrivateSubnetAzD
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnetAzD
+
+  PublicRtb:
+    Value: !Ref PublicRtb
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicRtb
+
+  PrivateRtb:
+    Value: !Ref PrivateRtb
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateRtb
+
+  SgInternal:
+    Value: !Ref SgInternal
+    Export:
+      Name: !Sub ${AWS::StackName}-SgInternal
+
+  SgBack:
+    Value: !Ref SgBack
+    Export:
+      Name: !Sub ${AWS::StackName}-SgBack
+
+  SgElbFront:
+    Value: !Ref SgElbFront
+    Export:
+      Name: !Sub ${AWS::StackName}-SgElbFront
+
+  IamRoleWeb:
+    Value: !Ref IamRoleWeb
+    Export:
+      Name: !Sub ${AWS::StackName}-IamRoleWeb
+
+  Alb:
+    Value: !Ref Alb
+    Export:
+      Name: !Sub ${AWS::StackName}-Alb
+
