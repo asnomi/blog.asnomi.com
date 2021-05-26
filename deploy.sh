@@ -11,7 +11,7 @@
 # deployment
 # ---------------------------
 # Stack Validate
-RESULT=$(cfn-lint ${TEMPLATE} -i W3010)
+RESULT=$(cfn-lint ${TEMPLATE} -i W3010 -i W2001)
 #RESULT="throw"
 if [ -z "${RESULT}" ]; then
   # ---------------------------
@@ -32,7 +32,9 @@ if [ -z "${RESULT}" ]; then
   PrivateSubnetAzACidr=${PrivateSubnetAzACidr} \
   PrivateSubnetAzDCidr=${PrivateSubnetAzDCidr} \
   MaintenanceIp=${MaintenanceIp} WebHealthCheckPath=${WebHealthCheckPath} \
-  AcmArn=${AcmArn}
+  AcmArn=${AcmArn} Ec2InstanceType=${Ec2InstanceType} \
+  RootEbsSize=${RootEbsSize} DataEbsSize=${DataEbsSize} \
+  Ec2SpotPrice=${Ec2SpotPrice}
   
   # ---------------------------
   # S3 delete

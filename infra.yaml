@@ -34,6 +34,15 @@ Metadata:
           default: SSL cert Config
         Parameters:
           - AcmArn
+      
+      - Label:
+          default: EC2 Settings
+        Parameters:
+          - AmiId
+          - Ec2InstanceType
+          - RootEbsSize
+          - DataEbsSize
+          - Ec2SpotPrice
 
 # ---------------------------------
 # Variable setting: Manual input for GUI Operation.
@@ -88,6 +97,30 @@ Parameters:
   WebHealthCheckPath:
     Type: String
     Description: Web Instance Health Check Path.
+
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+    Description: Set AMI ID.default latest AL2 AMI.
+
+  Ec2InstanceType:
+    Type: String
+    Default: t3.nano
+    Description: Set Instance Type
+
+  RootEbsSize:
+    Type: String
+    Default: 8
+    Description: Set EBS Size for Root Volume.
+  
+  DataEbsSize:
+    Type: String
+    Default: 8
+    Description: Set EBS Size for Data Volume.
+    
+  Ec2SpotPrice:
+    Type: String
+    Description: Set EC2 Spot Instance Price.
 
 # ---------------------------------
 # Deployment Resources
@@ -330,6 +363,7 @@ Resources:
       IpProtocol: '-1'
       SourceSecurityGroupId: !Ref SgElbFront
 
+  # Iam
   IamRoleWeb:
     Type: AWS::IAM::Role
     Properties:
@@ -363,6 +397,7 @@ Resources:
       Roles:
       - !Ref IamRoleWeb
 
+  # Elb
   Alb: 
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -415,8 +450,14 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 10
       HealthyThresholdCount: 3
+      TargetType: instance
+      TargetGroupAttributes: 
+        - Key: "deregistration_delay.timeout_seconds"
+          Value: "120"
+      Targets: 
+        - Id: !Ref Ec2Cms
+          Port: 80
       Name: !Sub ${Project}-${EnvTag}-web-targetgroup
-      Port: 80
       Protocol: HTTP
       Tags:
         - Key: Name
@@ -425,6 +466,41 @@ Resources:
           Value: !Ref EnvTag
         - Key: BillingGroup
           Value: !Ref EnvTag
+
+  # EC2
+  Ec2Cms:
+    Type: AWS::EC2::Instance
+    Properties: 
+      InstanceType: !Ref Ec2InstanceType
+      AdditionalInfo: !Ref Ec2SpotPrice
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: !Ref RootEbsSize
+            VolumeType: gp3
+        - DeviceName: /dev/xvdb
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: !Ref DataEbsSize
+            VolumeType: gp3
+      IamInstanceProfile: !Ref InstanceProfileWeb
+      ImageId: !Ref AmiId
+      #KeyName: String
+      SecurityGroupIds: 
+        - !Ref SgBack
+        - !Ref SgInternal
+      SubnetId: !Ref PrivateSubnetAzD
+      #SubnetId: !Ref PrivateSubnetAzA
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-cms-ec2
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
+
 
 # ---------------------------------
 # Variable setting: Export Value.
@@ -494,3 +570,7 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-Alb
 
+  Ec2Cms:
+    Value: !Ref Ec2Cms
+    Export:
+      Name: !Sub ${AWS::StackName}-Ec2Cms
