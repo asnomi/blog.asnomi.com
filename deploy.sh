@@ -25,7 +25,7 @@ if [ -z "${RESULT}" ]; then
   --capabilities CAPABILITY_NAMED_IAM \
   --no-execute-changeset \
   --parameter-overrides \
-  EnvTag=${Env} Project=${PJName} \
+  EnvTag=${EnvTag} Project=${Project} \
   VpcCidr=${VpcCidr} \
   PublicSubnetAzACidr=${PublicSubnetAzACidr} \
   PublicSubnetAzDCidr=${PublicSubnetAzDCidr} \
