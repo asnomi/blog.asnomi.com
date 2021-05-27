@@ -454,9 +454,7 @@ Resources:
       TargetGroupAttributes: 
         - Key: "deregistration_delay.timeout_seconds"
           Value: "120"
-      Targets: 
-        - Id: !Ref Ec2Cms
-          Port: 80
+      Port: 80
       Name: !Sub ${Project}-${EnvTag}-web-targetgroup
       Protocol: HTTP
       Tags:
@@ -467,40 +465,84 @@ Resources:
         - Key: BillingGroup
           Value: !Ref EnvTag
 
-  # EC2
-  Ec2Cms:
-    Type: AWS::EC2::Instance
-    Properties: 
-      InstanceType: !Ref Ec2InstanceType
-      AdditionalInfo: !Ref Ec2SpotPrice
-      BlockDeviceMappings:
-        - DeviceName: /dev/xvda
-          Ebs:
-            DeleteOnTermination: true
-            VolumeSize: !Ref RootEbsSize
-            VolumeType: gp3
-        - DeviceName: /dev/xvdb
-          Ebs:
-            DeleteOnTermination: true
-            VolumeSize: !Ref DataEbsSize
-            VolumeType: gp3
-      IamInstanceProfile: !Ref InstanceProfileWeb
-      ImageId: !Ref AmiId
-      #KeyName: String
-      SecurityGroupIds: 
-        - !Ref SgBack
-        - !Ref SgInternal
-      SubnetId: !Ref PrivateSubnetAzD
-      #SubnetId: !Ref PrivateSubnetAzA
+  # AutoScaling Group
+  AutoScalingCms:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${Project}-${EnvTag}-cms-asg
+      DesiredCapacity: '1'
+      MaxSize: '1'
+      MinSize: '0'
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 0   
+      LaunchTemplate: 
+        LaunchTemplateId: !Ref LaunchTemplateCms
+        Version: !GetAtt LaunchTemplateCms.LatestVersionNumber
+      TargetGroupARNs: [ !Ref TargetgroupWeb ]
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnetAzA
+        - !Ref PrivateSubnetAzD
+      TerminationPolicies:
+        - OldestInstance
       Tags:
         - Key: Name
-          Value: !Sub ${Project}-${EnvTag}-cms-ec2
+          Value: !Sub ${Project}-${EnvTag}-web-targetgroup
+          PropagateAtLaunch: True
         - Key: Env
           Value: !Ref EnvTag
+          PropagateAtLaunch: True
         - Key: BillingGroup
           Value: !Ref EnvTag
+          PropagateAtLaunch: True
 
-
+  # LaunchTemplate
+  LaunchTemplateCms:
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateData: 
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              DeleteOnTermination: true
+              VolumeSize: !Ref RootEbsSize
+              VolumeType: gp3
+          - DeviceName: /dev/xvdb
+            Ebs:
+              DeleteOnTermination: true
+              VolumeSize: !Ref DataEbsSize
+              VolumeType: gp3
+        InstanceMarketOptions:
+          MarketType: spot
+          SpotOptions:
+            InstanceInterruptionBehavior: terminate
+            MaxPrice: !Ref Ec2SpotPrice
+            SpotInstanceType: one-time
+        IamInstanceProfile: 
+          Arn: !GetAtt
+            - InstanceProfileWeb
+            - Arn
+        ImageId: !Ref AmiId
+        InstanceInitiatedShutdownBehavior: terminate
+        InstanceType: !Ref Ec2InstanceType
+        SecurityGroupIds: 
+          - !Ref SgBack
+          - !Ref SgInternal
+        TagSpecifications: 
+          - ResourceType: instance
+            Tags: 
+              - Key: Name
+                Value: !Sub ${Project}-${EnvTag}-cms-ec2
+              - Key: Env
+                Value: !Ref EnvTag
+              - Key: BillingGroup
+                Value: !Ref EnvTag
+        UserData: 
+          Fn::Base64: |
+            #!/bin/bash
+            sudo timedatectl set-timezone Asia/Tokyo
+            sudo yum install httpd -y
+            sudo systemctl start httpd
+      LaunchTemplateName: !Sub ${Project}-${EnvTag}-cms-lt
 
 # ---------------------------------
 # Variable setting: Export Value.
@@ -570,7 +612,12 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-Alb
 
-  Ec2Cms:
-    Value: !Ref Ec2Cms
+  AutoScalingCms:
+    Value: !Ref AutoScalingCms
     Export:
-      Name: !Sub ${AWS::StackName}-Ec2Cms
+      Name: !Sub ${AWS::StackName}-AutoScalingCms
+
+  LaunchTemplateCms:
+    Value: !Ref LaunchTemplateCms
+    Export:
+      Name: !Sub ${AWS::StackName}-LaunchTemplateCms
