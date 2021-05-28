@@ -288,9 +288,7 @@ Resources:
           ToPort: 80
         - CidrIp: !Ref VpcCidr
           Description: Accept private subnet traffic, for https
-          IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
+          IpProtocol: '-1'
       Tags:
         - Key: Name
           Value: !Sub ${Project}-${EnvTag}-internal-sg
@@ -375,6 +373,7 @@ Resources:
       SecurityGroupIds: 
         - !Ref SgInternal
       ServiceName: com.amazonaws.ap-northeast-1.ec2messages
+      PrivateDnsEnabled: true
       SubnetIds: 
         - !Ref PrivateSubnetAzA
         - !Ref PrivateSubnetAzD
@@ -387,6 +386,7 @@ Resources:
       SecurityGroupIds: 
         - !Ref SgInternal
       ServiceName: com.amazonaws.ap-northeast-1.ssm
+      PrivateDnsEnabled: true
       SubnetIds: 
         - !Ref PrivateSubnetAzA
         - !Ref PrivateSubnetAzD
@@ -399,6 +399,7 @@ Resources:
       SecurityGroupIds: 
         - !Ref SgInternal
       ServiceName: com.amazonaws.ap-northeast-1.ssmmessages
+      PrivateDnsEnabled: true
       SubnetIds: 
         - !Ref PrivateSubnetAzA
         - !Ref PrivateSubnetAzD
@@ -592,7 +593,9 @@ Resources:
             #!/bin/bash
             sudo timedatectl set-timezone Asia/Tokyo
             sudo yum install httpd -y
-            sudo systemctl start httpd
+            sudo amazon-linux-extras install php7.2 -y
+            sudo amazon-linux-extras install mariadb10.5 -y
+            sudo systemctl start httpd mysqld
       LaunchTemplateName: !Sub ${Project}-${EnvTag}-cms-lt
 
 # ---------------------------------
