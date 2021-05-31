@@ -593,9 +593,10 @@ Resources:
             #!/bin/bash
             sudo timedatectl set-timezone Asia/Tokyo
             sudo yum install httpd -y
-            sudo amazon-linux-extras install php7.2 -y
+            sudo amazon-linux-extras install php7.4 -y
             sudo amazon-linux-extras install mariadb10.5 -y
-            sudo systemctl start httpd mysqld
+            sudo systemctl start httpd mariadb
+            sudo systemctl enabled httpd mariadb
       LaunchTemplateName: !Sub ${Project}-${EnvTag}-cms-lt
 
 # ---------------------------------
