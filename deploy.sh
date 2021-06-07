@@ -34,7 +34,7 @@ if [ -z "${RESULT}" ]; then
   MaintenanceIp=${MaintenanceIp} WebHealthCheckPath=${WebHealthCheckPath} \
   AcmArn=${AcmArn} Ec2InstanceType=${Ec2InstanceType} \
   RootEbsSize=${RootEbsSize} DataEbsSize=${DataEbsSize} \
-  Ec2SpotPrice=${Ec2SpotPrice}
+  Ec2SpotPrice=${Ec2SpotPrice} S3BucketName=${S3BucketName}
   
   # ---------------------------
   # S3 delete

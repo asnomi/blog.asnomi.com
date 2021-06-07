@@ -43,6 +43,11 @@ Metadata:
           - RootEbsSize
           - DataEbsSize
           - Ec2SpotPrice
+      
+      - Label:
+          default: Other configure
+        Parameters:
+          - S3BucketName
 
 # ---------------------------------
 # Variable setting: Manual input for GUI Operation.
@@ -121,6 +126,10 @@ Parameters:
   Ec2SpotPrice:
     Type: String
     Description: Set EC2 Spot Instance Price.
+    
+  S3BucketName:
+    Type: String
+    Description: Set S3 Bucket Name.
 
 # ---------------------------------
 # Deployment Resources
@@ -599,6 +608,24 @@ Resources:
             sudo systemctl enabled httpd mariadb
       LaunchTemplateName: !Sub ${Project}-${EnvTag}-cms-lt
 
+  # S3
+  S3Storage:
+    Type: AWS::S3::Bucket
+    Properties: 
+      BucketName: !Ref S3BucketName
+      PublicAccessBlockConfiguration: 
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${EnvTag}-s3
+        - Key: Env
+          Value: !Ref EnvTag
+        - Key: BillingGroup
+          Value: !Ref EnvTag
+
 # ---------------------------------
 # Variable setting: Export Value.
 Outputs:
@@ -676,3 +703,8 @@ Outputs:
     Value: !Ref LaunchTemplateCms
     Export:
       Name: !Sub ${AWS::StackName}-LaunchTemplateCms
+
+  S3Storage:
+    Value: !Ref S3Storage
+    Export:
+      Name: !Sub ${AWS::StackName}-S3
